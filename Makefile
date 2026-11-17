@@ -79,7 +79,8 @@ sup.docx:
 	cp supplementary/sup.docx .
 
 clean:
-	rm -f ${PAPER} R/*.Rout sup.docx
+	rm -f ${PAPER} R/*.Rout sup.docx supplementary/sup.md supplementary/sup.docx
 	rm -rf ${PNG}
+	
 
 .PHONY: all clean
