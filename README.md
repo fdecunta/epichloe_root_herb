@@ -1,6 +1,8 @@
 # epichloe_root_herb
 
-This repository contains the reproducible source for a research manuscript and its supplementary materials on root-herb interactions in an *Epichloë*-associated system.
+This repository contains all data and code needed to reproduce the manuscript:
+
+"Foliar clipping and root herbivory induce root alkaloids from the foliar endophyte *Epichloë occultans* in *Lolium multiflorum*, but not resistance to root herbivores"
 
 It is a document-generation project that assembles the main paper and supporting appendix from analysis scripts, data, figures, and manuscript sections.
 
