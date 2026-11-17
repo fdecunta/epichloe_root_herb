@@ -1,8 +1,8 @@
 # epichloe_root_herb
 
-This repository contains the reproducible source for a research manuscript and its supplementary materials on root-herb interactions in an Epichloe-associated system.
+This repository contains the reproducible source for a research manuscript and its supplementary materials on root-herb interactions in an *Epichloë*-associated system.
 
-It is not a standalone software package; rather, it is a document-generation project that assembles the main paper and supporting appendix from analysis scripts, data, figures, and manuscript sections.
+It is a document-generation project that assembles the main paper and supporting appendix from analysis scripts, data, figures, and manuscript sections.
 
 ## Contents
 
@@ -12,18 +12,23 @@ It is not a standalone software package; rather, it is a document-generation pro
 - `sections/` — manuscript text fragments, acknowledgements, funding, and references
 - `bib/` — bibliography and citation style files
 - `supplementary/` — supplementary tables and appendix materials compiled into `sup.docx`
-- `m4/` and `Makefile` — manuscript build pipeline using `m4` and `pandoc`
+- `m4/` and `Makefile` — manuscript build pipeline
+
+## Dependencies
+
+- R
+- R packages: `car`, `emmeans`, `lattice`, `multcomp`, and `nlme`
+- Pandoc
+- GNU M4
+- GNU Make
+- ImageMagick (only needed to generate Figure S1 in the supplementary material)
 
 ## Build
 
-Run:
+Run from the repository root:
 
-```bash
+```sh
 make
 ```
 
-This generates the manuscript and supplementary document(s) in the repository root.
-
-## Notes
-
-Yes — the supplementary material here is clearly associated with a research paper. The repo includes a manuscript build workflow, figure generation, and a dedicated `supplementary/` document, which is typical of a paper appendix or online supplement.
+This builds the manuscript and supplementary document(s). ImageMagick is only required when generating supplementary Figure S1.
