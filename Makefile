@@ -7,7 +7,7 @@ DOCX_TEMPLATE= docx_template/ms_template.docx
 CITES=         --citeproc --bibliography=${BIB} --csl=${CSL}
 DOCX_REF=      --reference-doc=${DOCX_TEMPLATE}
 
-PNG_DIR=       figures/png
+PNG=       figures/png
 
 SECTIONS=      sections/title_page.m4           \
 	       sections/body.m4                 \
@@ -34,11 +34,11 @@ ROUT=          R/lolines.Rout                \
 	       R/phosphorus.Rout             \
 	       R/foliar_clipping.Rout
 
-FIGURES=       ${PNG_DIR}/lolines.png           \
-	       ${PNG_DIR}/rgr.png               \
-	       ${PNG_DIR}/rgr_x_lolines.png     \
-	       ${PNG_DIR}/shoot_root.png        \
-	       ${PNG_DIR}/fig5.png
+FIGURES=       ${PNG}/fig1.png              \
+	       ${PNG}/fig2.png              \
+	       ${PNG}/fig3.png              \
+	       ${PNG}/fig4.png              \
+	       ${PNG}/fig5.png
 
 all: ${ROUT} ${FIGURES} ${PAPER} sup.docx
 
@@ -46,19 +46,32 @@ ${PAPER}: ${SECTIONS} ${FIGURES} ${DOCX_TEMPLATE}
 	m4 -P m4/macros.m4 ${SECTIONS} | \
 	pandoc - -o ${PAPER} ${DOCX_REF} ${CITES}
 
-${PNG_DIR}/lolines.png:       R/lolines.Rout
-${PNG_DIR}/rgr.png:           R/rgr.Rout
-${PNG_DIR}/rgr_x_lolines.png: R/rgr_x_lolines.Rout
-${PNG_DIR}/shoot_root.png:    R/shoot_root_ratio.Rout
-${PNG_DIR}/cn.png:            R/cn.Rout
-${PNG_DIR}/np.png:            R/np.Rout
-${PNG_DIR}/fig5.png:          ${PNG_DIR}/cn.png ${PNG_DIR}/np.png
-	magick ${PNG_DIR}/cn.png ${PNG_DIR}/np.png \
+${PNG}/lolines.png:       R/lolines.Rout
+${PNG}/rgr_x_lolines.png: R/rgr_x_lolines.Rout
+${PNG}/rgr.png:           R/rgr.Rout
+${PNG}/shoot_root.png:    R/shoot_root_ratio.Rout
+${PNG}/cn.png:            R/cn.Rout
+${PNG}/np.png:            R/np.Rout
+
+${PNG}/fig1.png: ${PNG}/lolines.png
+	cp ${PNG}/lolines.png $@
+
+${PNG}/fig2.png: ${PNG}/rgr_x_lolines.png
+	cp ${PNG}/rgr_x_lolines.png $@
+
+${PNG}/fig3.png: ${PNG}/rgr.png
+	cp ${PNG}/rgr.png $@
+
+${PNG}/fig4.png: ${PNG}/shoot_root.png
+	cp ${PNG}/shoot_root.png $@
+
+${PNG}/fig5.png: ${PNG}/cn.png ${PNG}/np.png
+	magick ${PNG}/cn.png ${PNG}/np.png \
 	-size "%[fx:u.w>v.w?u.w:v.w]x2" xc:black -swap 2,1 \
-	-append ${PNG_DIR}/fig5.png
+	-append ${PNG}/fig5.png
 
 .R.Rout:
-	@mkdir -p ${PNG_DIR}
+	@mkdir -p ${PNG}
 	R CMD BATCH --vanilla $< $@
 
 sup.docx:
@@ -67,7 +80,6 @@ sup.docx:
 
 clean:
 	rm -f ${PAPER} R/*.Rout sup.docx
-	rm -rf ${PNG_DIR}
-
+	rm -rf ${PNG}
 
 .PHONY: all clean

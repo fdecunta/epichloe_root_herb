@@ -5,21 +5,21 @@ TOC=           --toc -s --number-section
 HEADER=        header.m4
 MACROS=        ../m4/macros.m4
 
-SUP_TABLES= lolines.m4       \
-	rgr_x_lolines.m4     \
-	rgr_x_lolines_2.m4   \
-	rgr_x_lolines_3.m4   \
-	rgr.m4               \
-	total_biomass.m4     \
-	shoot_biomass.m4     \
-	root_biomass.m4      \
-        shoot_root_ratio.m4  \
-	cn.m4                \
-	np.m4                \
-	carbon.m4            \
-	nitrogen.m4          \
-	phosphorus.m4        \
-	pics.m4
+SUP_TABLES= 01_lolines.m4       \
+	02_rgr_x_lolines.m4     \
+	03_rgr_x_lolines_2.m4   \
+	04_rgr_x_lolines_3.m4   \
+	05_rgr.m4               \
+	06_total_biomass.m4     \
+	07_shoot_biomass.m4     \
+	08_root_biomass.m4      \
+        09_shoot_root_ratio.m4  \
+	10_cn.m4                \
+	11_np.m4                \
+	12_carbon.m4            \
+	13_nitrogen.m4          \
+	14_phosphorus.m4        \
+	15_pics.m4
 
 sup.docx: sup.md
 	pandoc sup.md -o $@ ${DOCX_REF} ${TOC}
