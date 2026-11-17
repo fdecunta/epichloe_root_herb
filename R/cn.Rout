@@ -1,0 +1,390 @@
+
+R version 4.6.1 (2026-06-24) -- "Happy Hop"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: amd64-portbld-freebsd15.0
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #
+> # Root C:N ratio
+> #
+> 
+> source("R/config.R")
+> 
+> library(lattice)
+> library(nlme)
+> library(emmeans)
+Welcome to emmeans.
+Caution: You lose important information if you filter this package's results.
+See '? untidy'
+> library(multcomp)
+Loading required package: mvtnorm
+Loading required package: survival
+Loading required package: TH.data
+Loading required package: MASS
+
+Attaching package: ‘TH.data’
+
+The following object is masked from ‘package:MASS’:
+
+    geyser
+
+> 
+> dat <- read.csv("data/exp_nut.csv")
+> 
+> dat[["endophyte"]]   <- as.factor(dat[["endophyte"]])
+> dat[["root_herb"]]   <- as.factor(dat[["root_herb"]])
+> dat[["foliar_herb"]] <- as.factor(dat[["foliar_herb"]])
+> dat[["bloque"]]      <- as.factor(dat[["bloque"]])
+> 
+> dat[["root_CN"]] <- dat[["root_C_perc"]] / dat[["root_Nt_perc"]]
+> 
+> ### CN ratio
+> 
+> summary(dat[["root_CN"]])
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  21.04   24.44   28.07   28.84   31.79   50.91 
+> 
+> #coplot(root_CN ~ endophyte | root_herb * foliar_herb, data = dat)
+> 
+> #hist(dat$root_CN)
+> 
+> #hist(log(dat$root_CN))
+> 
+> #coplot(log(root_CN) ~ endophyte | root_herb * foliar_herb, data = dat)
+> 
+> ### Modelling
+> 
+> options(contrasts = c("contr.sum", "contr.poly"))
+> 
+> ### Modelling
+> 
+> cn_res <- lme(log(root_CN) ~ endophyte * root_herb * foliar_herb,
++                random = ~ 1 | bloque,
++                method = "REML",
++                data = dat)
+> 
+> #### Diagnostics
+> 
+> E <- residuals(cn_res, type = "normalized")
+> 
+> par(mfrow = c(1, 2))
+> # subplot 1
+> plot(
++     E ~ fitted(cn_res),
++     xlab = "Fitted values",
++     ylab = "Normalized residuals"
++ )
+> # subplot 2
+> qqnorm(E)
+> qqline(E)
+> 
+> 
+> par(mfrow = c(2, 2))
+> boxplot(E ~ dat$endophyte)
+> boxplot(E ~ dat$root_herb)
+> boxplot(E ~ dat$foliar_herb)
+> boxplot(E ~ dat$foliar_herb)
+> par(mfrow = c(1, 1))
+> 
+> shapiro.test(E)
+
+	Shapiro-Wilk normality test
+
+data:  E
+W = 0.98095, p-value = 0.3458
+
+> 
+> #### Inference
+> 
+> summary(cn_res)
+Linear mixed-effects model fit by REML
+  Data: dat 
+       AIC      BIC   logLik
+  17.99723 39.58607 1.001383
+
+Random effects:
+ Formula: ~1 | bloque
+        (Intercept)  Residual
+StdDev:  0.05514131 0.1758457
+
+Fixed effects:  log(root_CN) ~ endophyte * root_herb * foliar_herb 
+                                       Value  Std.Error DF   t-value p-value
+(Intercept)                         3.345617 0.02770034 56 120.77892  0.0000
+endophyte1                          0.028850 0.02072362 56   1.39213  0.1694
+root_herb1                         -0.015059 0.02072362 56  -0.72665  0.4705
+foliar_herb1                        0.004784 0.02072362 56   0.23083  0.8183
+endophyte1:root_herb1              -0.000646 0.02072362 56  -0.03118  0.9752
+endophyte1:foliar_herb1            -0.001710 0.02072362 56  -0.08252  0.9345
+root_herb1:foliar_herb1             0.016954 0.02072362 56   0.81811  0.4168
+endophyte1:root_herb1:foliar_herb1 -0.001849 0.02072362 56  -0.08922  0.9292
+ Correlation: 
+                                   (Intr) endph1 rt_hr1 flr_h1 endphyt1:r_1
+endophyte1                         0                                       
+root_herb1                         0      0                                
+foliar_herb1                       0      0      0                         
+endophyte1:root_herb1              0      0      0      0                  
+endophyte1:foliar_herb1            0      0      0      0      0           
+root_herb1:foliar_herb1            0      0      0      0      0           
+endophyte1:root_herb1:foliar_herb1 0      0      0      0      0           
+                                   endphyt1:f_1 r_1:_1
+endophyte1                                            
+root_herb1                                            
+foliar_herb1                                          
+endophyte1:root_herb1                                 
+endophyte1:foliar_herb1                               
+root_herb1:foliar_herb1            0                  
+endophyte1:root_herb1:foliar_herb1 0            0     
+
+Standardized Within-Group Residuals:
+        Min          Q1         Med          Q3         Max 
+-1.80361231 -0.59332110 -0.07761557  0.61730404  2.96679443 
+
+Number of Observations: 72
+Number of Groups: 9 
+> 
+> car::Anova(cn_res, type = "III")
+Analysis of Deviance Table (Type III tests)
+
+Response: log(root_CN)
+                                     Chisq Df Pr(>Chisq)    
+(Intercept)                     14587.5465  1     <2e-16 ***
+endophyte                           1.9380  1     0.1639    
+root_herb                           0.5280  1     0.4674    
+foliar_herb                         0.0533  1     0.8175    
+endophyte:root_herb                 0.0010  1     0.9751    
+endophyte:foliar_herb               0.0068  1     0.9342    
+root_herb:foliar_herb               0.6693  1     0.4133    
+endophyte:root_herb:foliar_herb     0.0080  1     0.9289    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+> 
+> emmeans(cn_res, ~ endophyte | root_herb * foliar_herb, type = "response")
+root_herb = 0, foliar_herb = 0:
+ endophyte response   SE df lower.CL upper.CL
+ E-            29.3 1.80  8     25.4     33.7
+ E+            27.9 1.71  8     24.2     32.1
+
+root_herb = 1, foliar_herb = 0:
+ endophyte response   SE df lower.CL upper.CL
+ E-            29.3 1.80  8     25.4     33.8
+ E+            27.6 1.70  8     24.0     31.8
+
+root_herb = 0, foliar_herb = 1:
+ endophyte response   SE df lower.CL upper.CL
+ E-            28.2 1.73  8     24.5     32.5
+ E+            26.5 1.63  8     23.0     30.5
+
+root_herb = 1, foliar_herb = 1:
+ endophyte response   SE df lower.CL upper.CL
+ E-            30.0 1.84  8     26.1     34.6
+ E+            28.3 1.74  8     24.6     32.6
+
+Degrees-of-freedom method: containment 
+Confidence level used: 0.95 
+Intervals are back-transformed from the log scale 
+> 
+> df_emmeans <- as.data.frame(
++     emmeans(cn_res, ~ endophyte * root_herb * foliar_herb, type = "response")
++ )
+> 
+> df_emmeans[["root_herb_f"]] <- factor(
++     df_emmeans[["root_herb"]],
++     levels = c(0, 1),
++     labels = c("No", "Si")
++ )
+> 
+> df_emmeans[["foliar_herb_f"]] <- factor(
++     df_emmeans[["foliar_herb"]],
++     levels = c(0, 1),
++     labels = c("No", "Si")
++ )
+> 
+> df_emmeans <- df_emmeans[ , !(names(df_emmeans) %in% c("df", "lower.CL", "upper.CL"))]
+> 
+> 
+> ## Plot
+> estimate_cex_scaling <- 0.9
+> 
+> letters_xpos <- 0
+> letters_ypos <- 43
+> 
+> x_lim <- c(0.5, 2.5)
+> y_lim <- c(20, 40)
+> 
+> ## x == 1 : herb
+> ## x == 0 : no herb
+> cn_subplot <- function(x, title, letter) {
++     opar = par(
++         mar = c(4, 4, 2, 0.5),
++         mgp = c(2, 0.7, 0),
++         cex.lab = labs_cex,
++         cex.axis = xlabs_cex,
++         font.main = 1
++     )
++     on.exit(par(opar))
++ 
++     df <- df_emmeans[df_emmeans[["foliar_herb"]] == x, ]
++     plot_dat <- dat[dat[["foliar_herb"]] == x, ]
++     x_pos <- as.numeric(df$root_herb_f)
++ 
++     plot(
++         x_pos,
++         df$response, 
++         type = "n", # empty plot
++         xlim = c(0.5, 2.5),
++         ylim = c(20, 40),
++         xaxt = "n", 
++         xlab = labels[["herb"]],
++         ylab = labels[["cn_ratio"]],
++         axes = FALSE,
++         main = title
++     )
++ 
++     ## E- points
++     stripchart(
++         root_CN ~ root_herb,
++         data = plot_dat,
++         method = "jitter",
++         jitter = 0.15,
++         vertical = TRUE,
++         pch = 19,
++         xlab = labels[["herb"]],
++         ylab = labels[["cn_ratio"]],
++         xlim = x_lim,
++         ylim = y_lim,
++         col = adjustcolor(colors[["endo"]][1], alpha.f = 0.10),
++         subset = plot_dat[["endophyte"]] == "E-",
++         cex = rawpts_cex,
++         axes = FALSE,
++         add = TRUE
++     )
++ 
++     ## E+ points
++     stripchart(
++         root_CN ~ root_herb,
++         data = plot_dat,
++         method = "jitter",
++         jitter = 0.15,
++         vertical = TRUE,
++         pch = 19,
++         xlab = labels[["herb"]],
++         ylab = labels[["cn_ratio"]],
++         xlim = x_lim,
++         ylim = y_lim,
++         col = adjustcolor(colors[["endo"]][2], alpha.f = 0.10),
++         subset = plot_dat[["endophyte"]] == "E+",
++         cex = rawpts_cex,
++         axes = FALSE,
++         add = TRUE
++     )
++ 
++     segments(
++         x0 = c(1, 1),
++         y0 = df$response[1:2],
++         x1 = c(2, 2),
++         y1 = df$response[3:4],
++         col = colors[["endo"]],
++         lwd = 2.5
++     )
++ 
++     arrows(
++         x0 = x_pos,
++         y0 = df$response - df$SE,
++         x1 = x_pos,
++         y1 = df$response + df$SE,
++         angle = 90,
++         code = 3,
++         length = 0.05
++     )
++ 
++     points(
++         x = x_pos,
++         y = df$response,
++         pch = 21,
++         col = "black",
++         bg = colors[["endo"]],
++         cex = estimate_cex * estimate_cex_scaling
++     )
++ 
++     legend(
++         "topright",
++         legend = c("E−", "E+"),
++         pt.bg = colors$endo,
++         pch = 21,
++         pt.cex = 1.2,
++         bty = "n",
++ 	cex = xlabs_cex
++     )
++ 
++     box(bty = box_type, lwd = axis_width)
++ 
++     ## Y axis
++     axis(
++         side = 2,
++         lwd = 0,
++         lwd.ticks = axis_width,
++         las = 1
++     )
++ 
++     ## X axis
++     axis(
++         side = 1,
++         at = c(1, 2),
++         labels = c("H−", "H+"),
++         lwd = 0,
++         lwd.ticks = axis_width
++     )
++ 
++     # subplot letter
++     text(
++         x = letters_xpos,
++         y = letters_ypos,
++         labels = letter,
++         xpd = TRUE,
++         cex = labs_cex,
++         font = 2
++     )
++     
++ }
+> 
+> plot_cn <- function() {
++     par(mfrow = c(1,2))
++     cn_subplot(0, "No foliar damage", "(a)")
++     cn_subplot(1, "Foliar damage", "(b)")
++ }    
+> 
+> plot_cn()
+> 
+> ## Save
+> w <- 7
+> h <- 3.5
+> 
+> 
+> png(
++     file = "figures/png/cn.png",
++     units = "in",
++     res = 300,
++     width = w,
++     height = h,
++     type = "cairo",
++     family = font_family
++ )
+> plot_cn()
+> dev.off()
+pdf 
+  2 
+> 
+> proc.time()
+   user  system elapsed 
+  1.855   0.083   1.933 

@@ -1,0 +1,194 @@
+#
+# Root Herbivore Weight Change and its relation to lolines
+#
+
+source("R/config.R")
+
+library(nlme)
+library(emmeans)
+library(multcomp)
+
+df <- read.csv("data/exp2023.csv")
+
+df[["endo"]]          <- as.factor(df[["endo"]])
+df[["herb"]]          <- as.factor(df[["herb"]])
+df[["sim_herb"]]      <- as.factor(df[["sim_herb"]])
+df[["foliar_damage"]] <- as.factor(df[["foliar_damage"]])
+df[["root_damage"]]   <- as.factor(df[["root_damage"]])
+
+df <- df[df[["endo"]] == 1, ] 
+
+df[["total_lolines"]] <- df[["nanl"]] + df[["nfl"]]
+df_lol <- df[!is.na(df[["total_lolines"]]), ]
+
+## Calculate Relative Weight Change
+
+# Filter to rows with both initial and final biomass measurements
+df_herb <- df_lol[!is.na(df_lol$dabderus_biom_inicial) & !is.na(df_lol$dabderus_biom_final), ]
+
+df_herb$rgr <- (df_herb$dabderus_biom_final - df_herb$dabderus_biom_inicial) / df_herb$dabderus_biom_inicial
+
+# Calculate relative growth rate: log(final / initial) / 180 days
+df_herb$days_in_plant <- -1
+
+df_herb$days_in_plant <- ifelse(df_herb$bloque %in% c("bloque_1", "bloque_2"), 28, df_herb$days_in_plant)
+df_herb$days_in_plant <- ifelse(df_herb$bloque %in% c("bloque_3", "bloque_4"), 29, df_herb$days_in_plant)
+df_herb$days_in_plant <- ifelse(df_herb$bloque %in% c("bloque_5", "bloque_6"), 31, df_herb$days_in_plant)
+df_herb$days_in_plant <- ifelse(df_herb$bloque %in% c("bloque_7", "bloque_8"), 31, df_herb$days_in_plant)
+
+df_herb$rgr <- log(df_herb$dabderus_biom_final / df_herb$dabderus_biom_inicial) / df_herb$days_in_plant
+
+# transform to mg g 
+df_herb$rgr <- df_herb$rgr * 1000
+
+## Data Modelling
+
+options(contrasts = c("contr.sum", "contr.poly"))
+
+
+mod_weight <- lme(rgr ~ total_lolines + root_damage + foliar_damage,
+                  random = ~ 1 | bloque,
+                  method = "REML",
+                  data = df_herb)
+
+mod_weight2 <- lme(rgr ~ total_lolines + root_damage + foliar_damage + root_biom,
+                  random = ~ 1 | bloque,
+                  method = "REML",
+                  data = df_herb)
+
+## Check Assumptions
+
+E <- residuals(mod_weight, type = "normalized")
+
+opar <- par(mfrow = c(1, 2))
+plot(E ~ fitted(mod_weight))
+qqnorm(E)
+qqline(E)
+par(opar)
+
+shapiro.test(E)
+
+opar = par(mfrow = c(1, 2))
+boxplot(E ~ df_herb$root_damage)
+boxplot(E ~ df_herb$foliar_damage)
+par(opar)
+
+car::Anova(mod_weight, type = "III")
+
+car::Anova(mod_weight2, type = "III")
+
+## ------------------------------------------------------------------
+## Plot
+
+# For plotting use a new model without root and foliar damage. if not, 
+# need to pick one level of each for plotting, and they are not significant,
+# so makes no sense.
+
+mod_weight <- lme(rgr ~ total_lolines,
+                  random = ~ 1 | bloque,
+                  method = "REML",
+                  data = df_herb)
+
+new_data <- data.frame(
+  total_lolines = seq(min(df_herb$total_lolines), 
+                      max(df_herb$total_lolines), 
+                      length.out = 100)
+)
+
+new_data$fit <- predict(mod_weight, newdata = new_data, level = 0)
+
+X <- cbind(1, new_data$total_lolines)
+V <- vcov(mod_weight)
+new_data$se_fit <- sqrt(rowSums((X %*% V) * X))   # sqrt of diag(X V X')
+
+dfs   <- summary(mod_weight)$tTable[, "DF"]
+tcrit <- qt(0.975, df = min(dfs))
+
+new_data$lo <- new_data$fit - tcrit * new_data$se_fit
+new_data$hi <- new_data$fit + tcrit * new_data$se_fit 
+
+plot_reg <- function() {
+    origpar <- par(no.readonly = TRUE)
+    par(
+      mar = c(4, 6, 1, 1),
+      mgp = c(2.5, 0.75, 0),
+      cex.lab = labs_cex,
+      cex.axis = labs_cex * 0.9
+    )
+
+    cf <- fixef(mod_weight)
+
+    plot(
+        rgr ~ total_lolines,
+        data = df_herb,
+        type = "n",
+        xlab = labels[["lolines"]],
+        ylab = labels[["weight_change"]],
+        axes = FALSE,
+        xlim = c(0, 120),
+        ylim = c(-12, 7)
+    )
+
+    ## Confidence band
+    polygon(
+        x = c(new_data$total_lolines, rev(new_data$total_lolines)),
+        y = c(new_data$lo, rev(new_data$hi)),
+        col = adjustcolor(colors[["herb"]][2], alpha.f = 0.15),
+        border = NA
+    )
+
+    ## Points
+    points(
+        rgr ~ total_lolines,
+        data = df_herb,
+        pch = 21,
+        bg = adjustcolor(colors[["herb"]][2], alpha.f = 0.5),
+        col = adjustcolor(colors[["herb"]][2], alpha.f = 0.75),
+        cex = 1.2
+    )
+
+    # y axis
+    axis(
+      side = 2,
+      lwd = 0,
+      lwd.ticks = axis_width,
+      las = 1
+    )
+
+    # x axis
+    axis(
+      side = 1,
+      lwd = 0,
+      lwd.ticks = axis_width,
+      las = 1,
+      at = seq(from = 0, to = 130, by = 30)
+    )
+
+    box(bty = box_type, lwd = axis_width)
+
+    xa <- min(df_herb[["total_lolines"]])
+    xb <- max(df_herb[["total_lolines"]])
+    segments(xa, cf[1] + cf[2] * xa, xb, cf[1] + cf[2] * xb, lwd = 2.5)
+
+    text(
+      x = 100,
+      y = 5,
+      label = "p = 0.020",
+      font = 3, 
+      cex = xlabs_cex
+    )
+}
+
+
+
+png(
+    file = "figures/png/rgr_x_lolines.png",
+    units = "in",
+    res = 300,
+    width = 3.8,
+    height = 3.5,
+    type = "cairo",
+    family = font_family
+)
+plot_reg()
+dev.off()

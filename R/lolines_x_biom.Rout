@@ -1,0 +1,81 @@
+
+R version 4.6.1 (2026-06-24) -- "Happy Hop"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: amd64-portbld-freebsd15.0
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #
+> # Root lolines concentration and shoot:root ratio
+> #
+> 
+> library(nlme)
+> 
+> df <- read.csv("data/exp2023.csv")
+> 
+> df[["endo"]]          <- as.factor(df[["endo"]])
+> df[["herb"]]          <- as.factor(df[["herb"]])
+> df[["sim_herb"]]      <- as.factor(df[["sim_herb"]])
+> df[["foliar_damage"]] <- as.factor(df[["foliar_damage"]])
+> df[["root_damage"]]   <- as.factor(df[["root_damage"]])
+> 
+> df[["total_lolines"]] <- df[["nanl"]] + df[["nfl"]]
+> df_lol <- df[!is.na(df[["total_lolines"]]), ]
+> 
+> ## Data Modelling
+> 
+> df_lol[["shoot_root"]] <- df_lol[["shoot_biom"]] / df_lol[["root_biom"]]
+> 
+> options(contrasts = c("contr.sum", "contr.poly"))
+> 
+> mod_weight <- lme(log(total_lolines) ~ shoot_root,
++                   random = ~ 1 | bloque,
++                   method = "REML",
++                   data = df_lol)
+> 
+> ## Check Assumptions
+> 
+> E <- residuals(mod_weight, type = "normalized")
+> 
+> opar <- par(mfrow = c(1, 2))
+> plot(E ~ fitted(mod_weight))
+> qqnorm(E)
+> qqline(E)
+> par(opar)
+> 
+> shapiro.test(E)
+
+	Shapiro-Wilk normality test
+
+data:  E
+W = 0.98592, p-value = 0.7557
+
+> 
+> opar = par(mfrow = c(1, 2))
+> boxplot(E ~ df_lol$root_damage)
+> boxplot(E ~ df_lol$foliar_damage)
+> par(opar)
+> 
+> car::Anova(mod_weight, type = "III")
+Analysis of Deviance Table (Type III tests)
+
+Response: log(total_lolines)
+               Chisq Df Pr(>Chisq)    
+(Intercept) 144.3135  1     <2e-16 ***
+shoot_root    0.3847  1     0.5351    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+> 
+> proc.time()
+   user  system elapsed 
+  0.305   0.044   0.343 

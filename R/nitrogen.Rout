@@ -1,0 +1,102 @@
+
+R version 4.6.1 (2026-06-24) -- "Happy Hop"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: amd64-portbld-freebsd15.0
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #
+> # Total N in roots
+> #
+> 
+> source("R/config.R")
+> 
+> library(lattice)
+> library(nlme)
+> library(emmeans)
+Welcome to emmeans.
+Caution: You lose important information if you filter this package's results.
+See '? untidy'
+> library(multcomp)
+Loading required package: mvtnorm
+Loading required package: survival
+Loading required package: TH.data
+Loading required package: MASS
+
+Attaching package: ‘TH.data’
+
+The following object is masked from ‘package:MASS’:
+
+    geyser
+
+> 
+> dat <- read.csv("data/exp_nut.csv")
+> 
+> dat[["endophyte"]]   <- as.factor(dat[["endophyte"]])
+> dat[["root_herb"]]   <- as.factor(dat[["root_herb"]])
+> dat[["foliar_herb"]] <- as.factor(dat[["foliar_herb"]])
+> dat[["bloque"]]      <- as.factor(dat[["bloque"]])
+> 
+> ## --------------------------------------------------
+> 
+> hist(dat$root_Nt_perc)
+> 
+> 
+> options(contrasts = c("contr.sum", "contr.poly"))
+> 
+> res <- lme(root_Nt_perc ~ endophyte * root_herb * foliar_herb,
++                random = ~ 1 | bloque,
++                method = "REML",
++                data = dat)
+> 
+> 
+> E <- residuals(res, type = "normalized")
+> 
+> par(mfrow = c(1, 2))
+> # subplot 1
+> plot(
++     E ~ fitted(res),
++     xlab = "Fitted values",
++     ylab = "Normalized residuals"
++ )
+> # subplot 2
+> qqnorm(E)
+> qqline(E)
+> 
+> 
+> par(mfrow = c(2, 2))
+> boxplot(E ~ dat$endophyte)
+> boxplot(E ~ dat$root_herb)
+> boxplot(E ~ dat$foliar_herb)
+> boxplot(E ~ dat$foliar_herb)
+> par(mfrow = c(1, 1))
+> 
+> car::Anova(res, type = "III")
+Analysis of Deviance Table (Type III tests)
+
+Response: root_Nt_perc
+                                    Chisq Df Pr(>Chisq)    
+(Intercept)                     1028.5431  1     <2e-16 ***
+endophyte                          2.6634  1     0.1027    
+root_herb                          0.1564  1     0.6925    
+foliar_herb                        0.3229  1     0.5699    
+endophyte:root_herb                0.0000  1     0.9964    
+endophyte:foliar_herb              0.0625  1     0.8026    
+root_herb:foliar_herb              0.9553  1     0.3284    
+endophyte:root_herb:foliar_herb    0.0010  1     0.9746    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+> 
+> proc.time()
+   user  system elapsed 
+  1.469   0.084   1.546 

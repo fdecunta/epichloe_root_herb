@@ -1,0 +1,520 @@
+
+R version 4.6.1 (2026-06-24) -- "Happy Hop"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: amd64-portbld-freebsd15.0
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #
+> # Root N:P ratio
+> #
+> 
+> source("R/config.R")
+> 
+> library(lattice)
+> library(nlme)
+> library(emmeans)
+Welcome to emmeans.
+Caution: You lose important information if you filter this package's results.
+See '? untidy'
+> library(multcomp)
+Loading required package: mvtnorm
+Loading required package: survival
+Loading required package: TH.data
+Loading required package: MASS
+
+Attaching package: ‘TH.data’
+
+The following object is masked from ‘package:MASS’:
+
+    geyser
+
+> 
+> dat <- read.csv("data/exp_nut.csv")
+> 
+> dat[["endophyte"]]   <- as.factor(dat[["endophyte"]])
+> dat[["root_herb"]]   <- as.factor(dat[["root_herb"]])
+> dat[["foliar_herb"]] <- as.factor(dat[["foliar_herb"]])
+> dat[["bloque"]]      <- as.factor(dat[["bloque"]])
+> 
+> # Transform phosphorus ppm to percentage, so they are in the same units
+> dat[["root_NP"]] <- dat[["root_Nt_perc"]] / (dat[["root_P_ppm"]] / 10000)
+> 
+> ### NP ratio
+> 
+> summary(dat[["root_NP"]])
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  5.209   7.627   9.086   9.199  10.024  24.249 
+> 
+> #coplot(root_NP ~ endophyte | root_herb * foliar_herb, data = dat)
+> 
+> #hist(dat$root_NP)
+> 
+> #hist(log(dat$root_NP))
+> 
+> ### Modelling
+> 
+> options(contrasts = c("contr.sum", "contr.poly"))
+> 
+> ### Modelling
+> 
+> np_0 <- lme(log(root_NP) ~ endophyte * root_herb * foliar_herb,
++            random = ~ 1 | bloque,
++            method = "ML",
++            data = dat)
+> 
+> np_1 <- lme(log(root_NP) ~ endophyte * root_herb * foliar_herb,
++            random = ~ 1 | bloque,
++            weights = varIdent(form = ~ 1 | endophyte),
++            method = "ML",
++            data = dat)
+> 
+> np_2 <- lme(log(root_NP) ~ endophyte * root_herb * foliar_herb,
++            random = ~ 1 | bloque,
++            weights = varIdent(form = ~ 1 | root_herb),
++            method = "ML",
++            data = dat)
+> 
+> np_3 <- lme(log(root_NP) ~ endophyte * root_herb * foliar_herb,
++            random = ~ 1 | bloque,
++            weights = varIdent(form = ~ 1 | foliar_herb),
++            method = "ML",
++            data = dat)
+> 
+> AIC(np_0, np_1, np_2, np_3)
+     df      AIC
+np_0 10 6.918675
+np_1 11 5.263785
+np_2 11 8.899062
+np_3 11 5.719277
+> 
+> #### Final model
+> 
+> np_final <- lme(log(root_NP) ~ endophyte * root_herb * foliar_herb,
++                random = ~ 1 | bloque,
++                method = "REML",
++                data = dat)
+> 
+> #### Diagnostics
+> 
+> E <- residuals(np_final, type = "normalized")
+> 
+> par(mfrow = c(1, 2))
+> # subplot 1
+> plot(
++     E ~ fitted(np_final),
++     xlab = "Fitted values",
++     ylab = "Normalized residuals"
++ )
+> # subplot 2
+> qqnorm(E)
+> qqline(E)
+> 
+> 
+> par(mfrow = c(2, 2))
+> boxplot(E ~ dat$endophyte)
+> boxplot(E ~ dat$root_herb)
+> boxplot(E ~ dat$foliar_herb)
+> boxplot(E ~ dat$foliar_herb)
+> 
+> par(mfrow = c(1, 1))
+> 
+> #### Inference
+> 
+> summary(np_final)
+Linear mixed-effects model fit by REML
+  Data: dat 
+      AIC      BIC   logLik
+  50.1236 71.71243 -15.0618
+
+Random effects:
+ Formula: ~1 | bloque
+        (Intercept)  Residual
+StdDev:   0.1039794 0.2198031
+
+Fixed effects:  log(root_NP) ~ endophyte * root_herb * foliar_herb 
+                                        Value  Std.Error DF  t-value p-value
+(Intercept)                         2.1836337 0.04327033 56 50.46492  0.0000
+endophyte1                          0.0522029 0.02590405 56  2.01524  0.0487
+root_herb1                          0.0159655 0.02590405 56  0.61633  0.5402
+foliar_herb1                       -0.0298827 0.02590405 56 -1.15359  0.2536
+endophyte1:root_herb1              -0.0702112 0.02590405 56 -2.71043  0.0089
+endophyte1:foliar_herb1            -0.0038443 0.02590405 56 -0.14841  0.8826
+root_herb1:foliar_herb1            -0.0346046 0.02590405 56 -1.33587  0.1870
+endophyte1:root_herb1:foliar_herb1  0.0555992 0.02590405 56  2.14635  0.0362
+ Correlation: 
+                                   (Intr) endph1 rt_hr1 flr_h1 endphyt1:r_1
+endophyte1                         0                                       
+root_herb1                         0      0                                
+foliar_herb1                       0      0      0                         
+endophyte1:root_herb1              0      0      0      0                  
+endophyte1:foliar_herb1            0      0      0      0      0           
+root_herb1:foliar_herb1            0      0      0      0      0           
+endophyte1:root_herb1:foliar_herb1 0      0      0      0      0           
+                                   endphyt1:f_1 r_1:_1
+endophyte1                                            
+root_herb1                                            
+foliar_herb1                                          
+endophyte1:root_herb1                                 
+endophyte1:foliar_herb1                               
+root_herb1:foliar_herb1            0                  
+endophyte1:root_herb1:foliar_herb1 0            0     
+
+Standardized Within-Group Residuals:
+        Min          Q1         Med          Q3         Max 
+-1.69436863 -0.61905109 -0.07579671  0.61361303  3.19997641 
+
+Number of Observations: 72
+Number of Groups: 9 
+> 
+> car::Anova(np_final, type = "III")
+Analysis of Deviance Table (Type III tests)
+
+Response: log(root_NP)
+                                    Chisq Df Pr(>Chisq)    
+(Intercept)                     2546.7084  1    < 2e-16 ***
+endophyte                          4.0612  1    0.04388 *  
+root_herb                          0.3799  1    0.53768    
+foliar_herb                        1.3308  1    0.24867    
+endophyte:root_herb                7.3464  1    0.00672 ** 
+endophyte:foliar_herb              0.0220  1    0.88202    
+root_herb:foliar_herb              1.7846  1    0.18159    
+endophyte:root_herb:foliar_herb    4.6068  1    0.03184 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+> 
+> 
+> 
+> emmeans(np_final, ~ endophyte * root_herb * foliar_herb, type = "response")
+ endophyte root_herb foliar_herb response    SE df lower.CL upper.CL
+ E-        0         0               8.75 0.709  8     7.26    10.55
+ E+        0         0               8.18 0.663  8     6.78     9.86
+ E-        1         0               9.35 0.758  8     7.76    11.27
+ E+        1         0               8.24 0.668  8     6.84     9.94
+ E-        0         1               8.97 0.727  8     7.44    10.82
+ E+        0         1              10.32 0.836  8     8.56    12.44
+ E-        1         1              10.43 0.845  8     8.65    12.57
+ E+        1         1               7.25 0.588  8     6.01     8.74
+
+Degrees-of-freedom method: containment 
+Confidence level used: 0.95 
+Intervals are back-transformed from the log scale 
+> 
+> cld(
++     emmeans(np_final, ~ endophyte * root_herb * foliar_herb, type = "response"),
++     sort = FALSE,
++     Letters = LETTERS
++ )
+ endophyte root_herb foliar_herb response    SE df lower.CL upper.CL .group
+ E-        0         0               8.75 0.709  8     7.26    10.55  AB   
+ E+        0         0               8.18 0.663  8     6.78     9.86  AB   
+ E-        1         0               9.35 0.758  8     7.76    11.27  AB   
+ E+        1         0               8.24 0.668  8     6.84     9.94  AB   
+ E-        0         1               8.97 0.727  8     7.44    10.82  AB   
+ E+        0         1              10.32 0.836  8     8.56    12.44  A    
+ E-        1         1              10.43 0.845  8     8.65    12.57  A    
+ E+        1         1               7.25 0.588  8     6.01     8.74   B   
+
+Degrees-of-freedom method: containment 
+Confidence level used: 0.95 
+Intervals are back-transformed from the log scale 
+P value adjustment: tukey method for comparing a family of 8 estimates 
+Tests are performed on the log scale 
+significance level used: alpha = 0.05 
+NOTE: If two or more means share the same grouping symbol,
+      then we cannot show them to be different.
+      But we also did not show them to be the same. 
+> 
+> 
+> emmeans(np_final, pairwise ~ endophyte | root_herb * foliar_herb, type = "response")
+$emmeans
+root_herb = 0, foliar_herb = 0:
+ endophyte response    SE df lower.CL upper.CL
+ E-            8.75 0.709  8     7.26    10.55
+ E+            8.18 0.663  8     6.78     9.86
+
+root_herb = 1, foliar_herb = 0:
+ endophyte response    SE df lower.CL upper.CL
+ E-            9.35 0.758  8     7.76    11.27
+ E+            8.24 0.668  8     6.84     9.94
+
+root_herb = 0, foliar_herb = 1:
+ endophyte response    SE df lower.CL upper.CL
+ E-            8.97 0.727  8     7.44    10.82
+ E+           10.32 0.836  8     8.56    12.44
+
+root_herb = 1, foliar_herb = 1:
+ endophyte response    SE df lower.CL upper.CL
+ E-           10.43 0.845  8     8.65    12.57
+ E+            7.25 0.588  8     6.01     8.74
+
+Degrees-of-freedom method: containment 
+Confidence level used: 0.95 
+Intervals are back-transformed from the log scale 
+
+$contrasts
+root_herb = 0, foliar_herb = 0:
+ contrast    ratio     SE df null t.ratio p.value
+ (E-) / (E+)  1.07 0.1110 56    1   0.651  0.5175
+
+root_herb = 1, foliar_herb = 0:
+ contrast    ratio     SE df null t.ratio p.value
+ (E-) / (E+)  1.13 0.1180 56    1   1.215  0.2293
+
+root_herb = 0, foliar_herb = 1:
+ contrast    ratio     SE df null t.ratio p.value
+ (E-) / (E+)  0.87 0.0901 56    1  -1.347  0.1835
+
+root_herb = 1, foliar_herb = 1:
+ contrast    ratio     SE df null t.ratio p.value
+ (E-) / (E+)  1.44 0.1490 56    1   3.510  0.0009
+
+Degrees-of-freedom method: containment 
+Tests are performed on the log scale 
+
+> 
+> 
+> df <- as.data.frame(
++     emmeans(np_final, ~ endophyte * root_herb * foliar_herb, type = "response")
++ )
+> 
+> df[["root_herb_f"]] <- factor(
++     df[["root_herb"]],
++     levels = c(0, 1),
++     labels = c("No", "Si")
++ )
+> 
+> 
+> df[["foliar_herb_f"]] <- factor(
++     df[["foliar_herb"]],
++     levels = c(0, 1),
++     labels = c("No", "Si")
++ )
+> 
+> df_emmeans <- df[ , !(names(df) %in% c("df", "lower.CL", "upper.CL"))]
+> 
+> no_foliar_df <- df[df[["foliar_herb"]] == 0, ]
+> foliar_df    <- df[df[["foliar_herb"]] == 1, ]
+> 
+> 
+> estimate_cex_scaling <- 0.9
+> 
+> letters_xpos <- 0
+> letters_ypos <- 16
+> 
+> xlim <- c(0.5, 2.5)
+> ylim <-  c(5, 15)
+> 
+> np_subplot <- function(x, title, letter) {
++     opar = par(
++         mar = c(4, 4, 2, 0.5),
++         mgp = c(2, 0.7, 0),
++         cex.lab = labs_cex,
++         cex.axis = xlabs_cex,
++         font.main = 1
++     )
++     on.exit(par(opar))
++ 
++     df <- df_emmeans[df_emmeans[["foliar_herb"]] == x, ]
++     plot_dat <- dat[dat[["foliar_herb"]] == x, ]
++     x_pos <- as.numeric(df$root_herb_f)
++ 
++     plot(
++         x_pos,
++         df$response, 
++         type = "n", # empty plot
++         xlim = c(0.5, 2.5),
++         ylim = c(5, 15),
++         xaxt = "n", 
++         xlab = labels[["herb"]],
++         ylab = labels[["np_ratio"]],
++         axes = FALSE,
++         main = title
++     )
++ 
++     ## E- points
++     stripchart(
++         root_NP ~ root_herb,
++         data = plot_dat,
++         method = "jitter",
++         jitter = 0.15,
++         vertical = TRUE,
++         pch = 19,
++         xlab = labels[["herb"]],
++         ylab = labels[["cn_ratio"]],
++         xlim = x_lim,
++         ylim = y_lim,
++         col = adjustcolor(colors[["endo"]][1], alpha.f = 0.10),
++         subset = plot_dat[["endophyte"]] == "E-",
++         cex = rawpts_cex,
++         axes = FALSE,
++         add = TRUE
++     )
++ 
++     ## E+ points
++     stripchart(
++         root_NP ~ root_herb,
++         data = plot_dat,
++         method = "jitter",
++         jitter = 0.15,
++         vertical = TRUE,
++         pch = 19,
++         xlab = labels[["herb"]],
++         ylab = labels[["cn_ratio"]],
++         xlim = x_lim,
++         ylim = y_lim,
++         col = adjustcolor(colors[["endo"]][2], alpha.f = 0.10),
++         subset = plot_dat[["endophyte"]] == "E+",
++         cex = rawpts_cex,
++         axes = FALSE,
++         add = TRUE
++     )    
++ 
++     segments(
++         x0 = c(1, 1),
++         y0 = df$response[1:2],
++         x1 = c(2, 2),
++         y1 = df$response[3:4],
++         col = colors[["endo"]],
++         lwd = 2.5
++     )
++ 
++     arrows(
++         x0 = x_pos,
++         y0 = df$response - df$SE,
++         x1 = x_pos,
++         y1 = df$response + df$SE,
++         angle = 90,
++         code = 3,
++         length = 0.05
++     )
++ 
++     points(
++         x = x_pos,
++         y = df$response,
++         pch = 21,
++         col = "black",
++         bg = colors[["endo"]],
++         cex = estimate_cex * estimate_cex_scaling
++     )
++ 
++     legend(
++         "topright",
++         legend = c("E−", "E+"),
++         pt.bg = colors$endo,
++         pch = 21,
++         pt.cex = 1.2,
++         bty = "n",
++ 	cex = xlabs_cex
++     )
++ 
++     box(bty = box_type, lwd = axis_width)
++ 
++     ## Y axis
++     axis(
++         side = 2,
++         lwd = 0,
++         lwd.ticks = axis_width,
++         las = 1
++     )
++ 
++     ## X axis
++     axis(
++         side = 1,
++         at = c(1, 2),
++         labels = c("H−", "H+"),
++         lwd = 0,
++         lwd.ticks = axis_width,
++ 	cex.axis = xlabs_cex
++     )
++ 
++     # subplot letter
++     text(
++         x = letters_xpos,
++         y = letters_ypos,
++         labels = letter,
++         xpd = TRUE,
++         cex = labs_cex,
++         font = 2
++     )
++ }
+> 
+> 
+> add_asterisk <- function() {
++     ## This is a helper function to add significance asterisk 
++     ## to the 2nd subplot for NP ratios.
++     ## Add asterisk with square bracket: 
++     ## only in foliar herbivory AND root herbivory
++ 
++     signif_df <- foliar_df[foliar_df[["root_herb"]] == 1, ]    
++ 
++     segments(
++         x0 = 2.12,
++         y0 = min(signif_df[["response"]]),
++         x1 = 2.15,
++         y1 = min(signif_df[["response"]])
++     )
++ 
++     segments(
++         x0 = 2.12,
++         y0 = max(signif_df[["response"]]),
++         x1 = 2.15,
++         y1 = max(signif_df[["response"]])
++     )
++ 
++     segments(
++         x0 = 2.15,
++         y0 = min(signif_df[["response"]]),
++         x1 = 2.15,
++         y1 = max(signif_df[["response"]])
++     )
++ 
++     text(
++         x = 2.25,
++         y = mean(signif_df[["response"]]),
++         labels = "*",
++         cex = 1.5
++     )
++ }
+> 
+> 
+> plot_np <- function() {
++     par(mfrow = c(1,2))
++     np_subplot(0, "No foliar damage", "(c)")
++     np_subplot(1, "Foliar damage", "(d)")
++     add_asterisk()
++ } 
+> 
+> 
+> w <- 7
+> h <- 3.5
+> 
+> ## Save plot
+> 
+> png(
++     file = "figures/png/np.png",
++     units = "in",
++     res = 300,
++     width = w,
++     height = h,
++     type = "cairo",
++     family = font_family
++ )
+> plot_np()
+> dev.off()
+pdf 
+  2 
+> 
+> proc.time()
+   user  system elapsed 
+  2.099   0.091   2.183 

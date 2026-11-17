@@ -1,0 +1,167 @@
+
+R version 4.6.1 (2026-06-24) -- "Happy Hop"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: amd64-portbld-freebsd15.0
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #
+> # Shoot Biomass
+> #
+> 
+> # Load config for colors, labels, etc.
+> source("R/config.R")
+> 
+> library(lattice)
+> library(nlme)
+> library(emmeans)
+Welcome to emmeans.
+Caution: You lose important information if you filter this package's results.
+See '? untidy'
+> library(multcomp)
+Loading required package: mvtnorm
+Loading required package: survival
+Loading required package: TH.data
+Loading required package: MASS
+
+Attaching package: ‘TH.data’
+
+The following object is masked from ‘package:MASS’:
+
+    geyser
+
+> 
+> dat_2023 <- read.csv("data/exp2023.csv")
+> 
+> dat_2023[["endo"]] <- as.factor(dat_2023[["endo"]])
+> dat_2023[["herb"]] <- as.factor(dat_2023[["herb"]])
+> dat_2023[["foliar_damage"]] <- as.factor(dat_2023[["foliar_damage"]])
+> dat_2023[["root_damage"]] <- as.factor(dat_2023[["root_damage"]])
+> dat_2023[["sim_herb"]] <- as.factor(dat_2023[["sim_herb"]])
+> 
+> ## Explore shoot biomass
+> 
+> summary(dat_2023[["shoot_biom"]])
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   5.01   11.71   15.23   16.43   19.44   40.97 
+> 
+> # Model Selection
+> 
+> # contrasts for ANOVA type 3
+> options(contrasts = c("contr.sum", "contr.poly"))
+> 
+> mod_0 <- gls(shoot_biom ~ endo * foliar_damage * root_damage * herb,
++              method = "ML",
++              data = dat_2023)
+> 
+> mod_1 <- lme(shoot_biom ~ endo * foliar_damage * root_damage * herb,
++              random = ~ 1 | bloque,
++              method = "ML",
++              data = dat_2023)
+> 
+> mod_2 <- gls(shoot_biom ~ endo * foliar_damage * root_damage * herb,
++              weights = varIdent(form = ~ 1 | foliar_damage),
++              method = "ML",
++              data = dat_2023)
+> 
+> mod_3 <- lme(shoot_biom ~ endo * foliar_damage * root_damage * herb,
++              random = ~ 1 | bloque,
++              weights = varIdent(form = ~ 1 | foliar_damage),
++              method = "ML",
++              data = dat_2023)
+> 
+> AIC(mod_0, mod_1, mod_2, mod_3)
+      df      AIC
+mod_0 17 817.6841
+mod_1 18 819.5742
+mod_2 18 792.3389
+mod_3 19 794.3389
+> 
+> # The best model is the one that accounts for different variance across `foliar_damage` groups.
+> 
+> mod_shoot <- gls(shoot_biom ~ endo * foliar_damage * root_damage * herb,
++                  weights = varIdent(form = ~ 1 | foliar_damage),
++                  method = "REML",
++                  data = dat_2023)
+> 
+> 
+> ## Check Assumptions
+> 
+> E <- residuals(mod_shoot, type = "normalized")
+> 
+> origpar <- par(no.readonly = TRUE)
+> 
+> par(mfrow = c(1, 2))
+> plot(E ~ fitted(mod_shoot))
+> qqnorm(E)
+> qqline(E)
+> par(origpar)
+> 
+> par(mfrow = c(2, 2))
+> 
+> boxplot(E ~ dat_2023$endo)
+> boxplot(E ~ dat_2023$root_damage)
+> boxplot(E ~ dat_2023$foliar_damage)
+> boxplot(E ~ dat_2023$herb)
+> 
+> par(origpar)
+> 
+> # Residuals show no clear patterns; assumptions appear reasonable.
+> 
+> car::Anova(mod_shoot, type = "III")
+Analysis of Deviance Table (Type III tests)
+
+Response: shoot_biom
+                                    Df     Chisq Pr(>Chisq)    
+(Intercept)                          1 1131.9325  < 2.2e-16 ***
+endo                                 1    0.0612     0.8046    
+foliar_damage                        1   73.7266  < 2.2e-16 ***
+root_damage                          1   22.7334  1.861e-06 ***
+herb                                 1    0.1999     0.6548    
+endo:foliar_damage                   1    0.1475     0.7010    
+endo:root_damage                     1    0.0936     0.7597    
+foliar_damage:root_damage            1    0.1933     0.6602    
+endo:herb                            1    1.0924     0.2959    
+foliar_damage:herb                   1    1.3023     0.2538    
+root_damage:herb                     1    1.0513     0.3052    
+endo:foliar_damage:root_damage       1    0.7460     0.3877    
+endo:foliar_damage:herb              1    1.7375     0.1875    
+endo:root_damage:herb                1    0.0002     0.9900    
+foliar_damage:root_damage:herb       1    0.5034     0.4780    
+endo:foliar_damage:root_damage:herb  1    0.0066     0.9352    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+> 
+> emmeans(mod_shoot, ~ foliar_damage)
+NOTE: Results may be misleading due to involvement in interactions
+ foliar_damage emmean    SE df lower.CL upper.CL
+ 0               20.6 0.871 56     18.9     22.4
+ 1               12.2 0.442 56     11.3     13.1
+
+Results are averaged over the levels of: endo, root_damage, herb 
+Degrees-of-freedom method: satterthwaite 
+Confidence level used: 0.95 
+> 
+> emmeans(mod_shoot, ~ root_damage)
+NOTE: Results may be misleading due to involvement in interactions
+ root_damage emmean   SE   df lower.CL upper.CL
+ 0             18.8 0.69 83.1     17.4     20.1
+ 1             14.1 0.69 83.1     12.7     15.5
+
+Results are averaged over the levels of: endo, foliar_damage, herb 
+Degrees-of-freedom method: satterthwaite 
+Confidence level used: 0.95 
+> 
+> proc.time()
+   user  system elapsed 
+  1.744   0.107   1.847 

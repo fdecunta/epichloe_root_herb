@@ -1,0 +1,432 @@
+
+R version 4.6.1 (2026-06-24) -- "Happy Hop"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: amd64-portbld-freebsd15.0
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #
+> # Shoot:Root Ratio
+> #
+> 
+> # Must run from notebooks/, not from root dir
+> # Load config for colors, labels, etc.
+> source("R/config.R")
+> 
+> library(lattice)
+> library(nlme)
+> library(emmeans)
+Welcome to emmeans.
+Caution: You lose important information if you filter this package's results.
+See '? untidy'
+> library(multcomp)
+Loading required package: mvtnorm
+Loading required package: survival
+Loading required package: TH.data
+Loading required package: MASS
+
+Attaching package: ‘TH.data’
+
+The following object is masked from ‘package:MASS’:
+
+    geyser
+
+> 
+> dat_2023 <- read.csv("data/exp2023.csv")
+> 
+> dat_2023[["endo"]] <- as.factor(dat_2023[["endo"]])
+> dat_2023[["herb"]] <- as.factor(dat_2023[["herb"]])
+> dat_2023[["foliar_damage"]] <- as.factor(dat_2023[["foliar_damage"]])
+> dat_2023[["root_damage"]] <- as.factor(dat_2023[["root_damage"]])
+> dat_2023[["sim_herb"]] <- as.factor(dat_2023[["sim_herb"]])
+> 
+> # Compute shoot:root ratio
+> dat_2023[["shoot_root_ratio"]] <- dat_2023[["shoot_biom"]] / dat_2023[["root_biom"]]
+> 
+> ## Explore shoot:root ratio
+> 
+> summary(dat_2023[["shoot_root_ratio"]])
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  1.198   2.356   2.782   3.068   3.624   7.186 
+> 
+> # Model Selection
+> 
+> options(contrasts = c("contr.sum", "contr.poly"))
+> 
+> mod_sr_0 <- gls(shoot_root_ratio ~ endo * foliar_damage * root_damage * herb,
++                 method = "ML",
++                 data = dat_2023)
+> 
+> mod_sr_1 <- lme(shoot_root_ratio ~ endo * foliar_damage * root_damage * herb,
++                 random = ~ 1 | bloque,
++                 method = "ML",
++                 data = dat_2023)
+> 
+> mod_sr_2 <- gls(shoot_root_ratio ~ endo * foliar_damage * root_damage * herb,
++                 weights = varIdent(form = ~ 1 | foliar_damage),
++                 method = "ML",
++                 data = dat_2023)
+> 
+> mod_sr_3 <- lme(shoot_root_ratio ~ endo * foliar_damage * root_damage * herb,
++                 random = ~ 1 | bloque,
++                 weights = varIdent(form = ~ 1 | root_damage),
++                 method = "ML",
++                 data = dat_2023)
+> 
+> mod_sr_4 <- lme(shoot_root_ratio ~ endo * foliar_damage * root_damage * herb,
++                 random = ~ 1 | bloque,
++                 weights = varIdent(form = ~ 1 | endo),
++                 method = "ML",
++                 data = dat_2023)
+> 
+> AIC(mod_sr_0, mod_sr_1, mod_sr_2, mod_sr_3, mod_sr_4)
+         df      AIC
+mod_sr_0 17 394.8131
+mod_sr_1 18 396.8072
+mod_sr_2 18 396.6527
+mod_sr_3 19 396.9270
+mod_sr_4 19 386.5983
+> 
+> mod_sr <- lme(shoot_root_ratio ~ endo * foliar_damage * root_damage * herb,
++               random = ~ 1 | bloque,
++               weights = varIdent(form = ~ 1 | endo),
++               method = "REML",
++               data = dat_2023)
+> 
+> 
+> ## Check Assumptions
+> 
+> E <- residuals(mod_sr, type = "normalized")
+> 
+> origpar <- par(no.readonly = TRUE)
+> par(mfrow = c(1, 2))
+> plot(E ~ fitted(mod_sr))
+> qqnorm(E)
+> qqline(E)
+> par(origpar)
+> 
+> par(mfrow = c(2, 2))
+> boxplot(E ~ dat_2023$endo)
+> boxplot(E ~ dat_2023$root_damage)
+> boxplot(E ~ dat_2023$foliar_damage)
+> boxplot(E ~ dat_2023$herb)
+> par(origpar)
+> 
+> 
+> car::Anova(mod_sr, type = "III")
+Analysis of Deviance Table (Type III tests)
+
+Response: shoot_root_ratio
+                                        Chisq Df Pr(>Chisq)    
+(Intercept)                         1074.4806  1    < 2e-16 ***
+endo                                   2.7550  1    0.09695 .  
+foliar_damage                          5.2607  1    0.02181 *  
+root_damage                            0.3514  1    0.55332    
+herb                                   3.8975  1    0.04836 *  
+endo:foliar_damage                     1.2356  1    0.26631    
+endo:root_damage                       3.4996  1    0.06139 .  
+foliar_damage:root_damage              0.6474  1    0.42104    
+endo:herb                              0.9560  1    0.32820    
+foliar_damage:herb                     1.5881  1    0.20759    
+root_damage:herb                       0.9129  1    0.33934    
+endo:foliar_damage:root_damage         0.6420  1    0.42298    
+endo:foliar_damage:herb                0.0173  1    0.89521    
+endo:root_damage:herb                  0.5298  1    0.46669    
+foliar_damage:root_damage:herb         0.9919  1    0.31928    
+endo:foliar_damage:root_damage:herb    0.0709  1    0.78998    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+> 
+> ## Marginal Means
+> 
+> emmeans(mod_sr, ~ herb)
+NOTE: Results may be misleading due to involvement in interactions
+ herb emmean    SE df lower.CL upper.CL
+ 0      2.88 0.132  7     2.57     3.20
+ 1      3.25 0.132  7     2.94     3.57
+
+Results are averaged over the levels of: endo, foliar_damage, root_damage 
+Degrees-of-freedom method: containment 
+Confidence level used: 0.95 
+> 
+> emmeans(mod_sr, ~ foliar_damage)
+NOTE: Results may be misleading due to involvement in interactions
+ foliar_damage emmean    SE df lower.CL upper.CL
+ 0               3.28 0.132  7     2.97     3.60
+ 1               2.85 0.132  7     2.54     3.17
+
+Results are averaged over the levels of: endo, root_damage, herb 
+Degrees-of-freedom method: containment 
+Confidence level used: 0.95 
+> 
+> cld(
++ 	emmeans(mod_sr, ~ herb * foliar_damage),
++ 	sort = FALSE,
++ 	Letters = LETTERS
++ )
+NOTE: Results may be misleading due to involvement in interactions
+ herb foliar_damage emmean    SE df lower.CL upper.CL .group
+ 0    0               2.98 0.187  7     2.54     3.42  AB   
+ 1    0               3.59 0.187  7     3.14     4.03  A    
+ 0    1               2.79 0.187  7     2.34     3.23   B   
+ 1    1               2.92 0.187  7     2.48     3.36  AB   
+
+Results are averaged over the levels of: endo, root_damage 
+Degrees-of-freedom method: containment 
+Confidence level used: 0.95 
+P value adjustment: tukey method for comparing a family of 4 estimates 
+significance level used: alpha = 0.05 
+NOTE: If two or more means share the same grouping symbol,
+      then we cannot show them to be different.
+      But we also did not show them to be the same. 
+> 
+> ## ------------------------------------------------------------------
+> ## Plots 
+> 
+> ## Variables for both plots
+> 
+> # Y axis
+> y_lim <- c(1, 8)
+> 
+> # Letters for subplots (a) and (b)
+> letters_xpos <- -0.05
+> letters_ypos <- 9
+> 
+> # p-values
+> pval_ypos <- 7
+> 
+> # xlabs
+> xlabs_ypos <- 0
+> 
+> # Estimate
+> 
+> # raw points
+> 
+> 
+> ### Root herbivory
+> 
+> plot_herb_effect <- function() {
++     opar <- par(
++         mar = c(4, 4, 2, 1),
++         mgp = c(2.2, 0.75, 0),
++         cex.lab = labs_cex,
++         cex.axis = labs_cex * 0.9
++     )
++     on.exit(par(opar))
++ 
++     df <- as.data.frame(emmeans(mod_sr, ~ herb), sort = FALSE)
++     pval <- "0.048"
++ 
++     stripchart(
++         shoot_root_ratio ~ herb,
++         data = dat_2023,
++         method = "jitter",
++         jitter = 0.12,
++         vertical = TRUE,
++         pch = 19,
++         ylab = labels$sr_ratio,
++         xlab = labels$herb,
++         col = adjustcolor(colors[["herb"]], alpha.f = 0.13),
++         ylim = y_lim,
++         xlim = c(0.5, 2.5),
++         cex = rawpts_cex,
++         axes = FALSE
++     )
++ 
++     ## Y axis
++     axis(
++         side = 2,
++         lwd = 0,
++         lwd.ticks = 0.6,
++         las = 1,
++         at = seq(from=y_lim[1], to=y_lim[2], by=2)
++     )
++ 
++     ## Box
++     box(bty = box_type, lwd = 0.6)
++ 
++     # Errorbars
++     arrows(
++         x0 = 1:nrow(df),
++         y0 = df$emmean - df$SE,
++         x1 = 1:nrow(df),
++         y1 = df$emmean + df$SE,
++         length = 0.09,
++         angle = 90,
++         code = 3,
++         lwd = 1.5
++     )
++ 
++     # Mean Estimates
++     points(
++         x = 1:nrow(df),
++         y = df$emmean,
++         pch = 21,
++         cex = estimate_cex,
++         bg = colors[["herb"]],
++         col = "black"
++     )
++ 
++     text(
++         x = c(1, 2),
++         y = xlabs_ypos,
++         cex = xlabs_cex,
++         labels = c("H-", "H+"),
++         xpd = TRUE
++     )
++ 
++     text(
++         x = 1.5,
++         y = pval_ypos,
++         labels = paste("p =", pval),
++         cex = xlabs_cex,
++         font = 3
++     )
++ 
++     text(
++         x = letters_xpos,
++         y = letters_ypos,
++         labels = "(b)",
++         xpd = TRUE,
++         cex = labs_cex ,
++         font = 2
++     )
++ }
+> 
+> 
+> plot_foliar_effect <- function() {
++     opar <- par(
++         mar = c(4, 4, 2, 1),
++         mgp = c(2.2, 0.75, 0),
++         cex.lab = labs_cex,
++         cex.axis = labs_cex * 0.9
++     )
++     on.exit(par(opar))
++ 
++     df <- as.data.frame(emmeans(mod_sr, ~ foliar_damage))
++     pval <- "0.021"
++ 
++     stripchart(
++         shoot_root_ratio ~ foliar_damage,
++         data = dat_2023,
++         method = "jitter",
++         jitter = 0.12,
++         vertical = TRUE,
++         pch = 19,
++         ylab = labels$sr_ratio,
++         xlab = labels$foliar_damage,
++         col = adjustcolor(colors[["foliar_damage"]], alpha.f = 0.15),
++         ylim = y_lim,
++         xlim = c(0.5, 2.5),
++ 	cex = rawpts_cex,
++         axes = FALSE
++     )
++ 
++     ## Y axis
++     axis(
++         side = 2,
++         lwd = 0,
++         lwd.ticks = axis_width,
++         las = 1,
++         at = seq(from=y_lim[1], to=y_lim[2], by=2)
++     )
++ 
++     ## Box
++     box(bty = box_type, lwd = axis_width)
++ 
++     # Errorbars
++     arrows(
++         x0 = 1:nrow(df),
++         y0 = df$emmean - df$SE,
++         x1 = 1:nrow(df),
++         y1 = df$emmean + df$SE,
++         length = 0.09,
++         angle = 90,
++         code = 3,
++         lwd = 1.5
++     )
++ 
++     # Mean Estimates
++     points(
++         x = 1:nrow(df),
++         y = df$emmean,
++         pch = 21,
++         cex = estimate_cex,
++         bg = colors[["foliar_damage"]],
++         col = "black"
++     )
++ 
++     text(
++         x = c(1, 2),
++         y = xlabs_ypos,
++         cex = xlabs_cex,
++         labels = c("D-", "D+"),
++         xpd = TRUE
++     )
++ 
++     text(
++         x = 1.5,
++         y = pval_ypos,
++         labels = paste("p =", pval),
++         cex = xlabs_cex,
++         font = 3
++     )
++ 
++     text(
++         x = letters_xpos,
++         y = letters_ypos,
++         labels = "(a)",
++         xpd = TRUE,
++         cex = labs_cex,
++         font = 2
++     )
++ }
+> 
+> 
+> plot_shoot_root <- function() {
++     par(
++         mfrow = c(1, 2),
++         mar = c(4, 4, 1, 1),
++         mgp = c(2.5, 0.75, 0)
++     )
++ 
++     plot_foliar_effect()
++     plot_herb_effect()
++ }
+> 
+> 
+> ## ------------------------------------------------------------------
+> ## Save plots
+> 
+> 
+> 
+> png(
++     file = "figures/png/shoot_root.png",
++     units  = "in",
++     res = 300,
++     width = 7,
++     height = 3.5,
++     type = "cairo",
++     family = font_family
++ )
+> plot_shoot_root()
+NOTE: Results may be misleading due to involvement in interactions
+NOTE: Results may be misleading due to involvement in interactions
+> dev.off()
+pdf 
+  2 
+> 
+> 
+> proc.time()
+   user  system elapsed 
+  2.163   0.163   2.320 

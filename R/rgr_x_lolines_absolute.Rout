@@ -1,0 +1,155 @@
+
+R version 4.6.1 (2026-06-24) -- "Happy Hop"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: amd64-portbld-freebsd15.0
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #
+> # Root Herbivore Weight Change and its relation to lolines
+> #
+> 
+> source("R/config.R")
+> 
+> library(nlme)
+> library(emmeans)
+Welcome to emmeans.
+Caution: You lose important information if you filter this package's results.
+See '? untidy'
+> library(multcomp)
+Loading required package: mvtnorm
+Loading required package: survival
+Loading required package: TH.data
+Loading required package: MASS
+
+Attaching package: ‘TH.data’
+
+The following object is masked from ‘package:MASS’:
+
+    geyser
+
+> 
+> df <- read.csv("data/exp2023.csv")
+> 
+> df[["endo"]]          <- as.factor(df[["endo"]])
+> df[["herb"]]          <- as.factor(df[["herb"]])
+> df[["sim_herb"]]      <- as.factor(df[["sim_herb"]])
+> df[["foliar_damage"]] <- as.factor(df[["foliar_damage"]])
+> df[["root_damage"]]   <- as.factor(df[["root_damage"]])
+> 
+> df <- df[df[["endo"]] == 1, ] 
+> 
+> df[["total_lolines"]] <- df[["nanl"]] + df[["nfl"]]
+> df_lol <- df[!is.na(df[["total_lolines"]]), ]
+> 
+> ## Calculate Relative Weight Change
+> 
+> # Filter to rows with both initial and final biomass measurements
+> df_herb <- df_lol[!is.na(df_lol$dabderus_biom_inicial) & !is.na(df_lol$dabderus_biom_final), ]
+> 
+> df_herb$rgr <- (df_herb$dabderus_biom_final - df_herb$dabderus_biom_inicial) / df_herb$dabderus_biom_inicial
+> 
+> # Calculate relative growth rate: log(final / initial) / 180 days
+> df_herb$days_in_plant <- -1
+> 
+> df_herb$days_in_plant <- ifelse(df_herb$bloque %in% c("bloque_1", "bloque_2"), 28, df_herb$days_in_plant)
+> df_herb$days_in_plant <- ifelse(df_herb$bloque %in% c("bloque_3", "bloque_4"), 29, df_herb$days_in_plant)
+> df_herb$days_in_plant <- ifelse(df_herb$bloque %in% c("bloque_5", "bloque_6"), 31, df_herb$days_in_plant)
+> df_herb$days_in_plant <- ifelse(df_herb$bloque %in% c("bloque_7", "bloque_8"), 31, df_herb$days_in_plant)
+> 
+> df_herb$rgr <- log(df_herb$dabderus_biom_final / df_herb$dabderus_biom_inicial) / df_herb$days_in_plant
+> 
+> # transform to mg g 
+> df_herb$rgr <- df_herb$rgr * 1000
+> 
+> 
+> ## Define lolines content
+> df_herb[["lolines_content"]] <- df_herb[["root_biom"]] * df_herb[["total_lolines"]]
+> 
+> ## Data Modelling
+> options(contrasts = c("contr.sum", "contr.poly"))
+> 
+> mod_weight <- lme(rgr ~ lolines_content + root_damage + foliar_damage,
++                   random = ~ 1 | bloque,
++                   method = "REML",
++                   data = df_herb)
+> 
+> ## Check Assumptions
+> 
+> E <- residuals(mod_weight, type = "normalized")
+> 
+> opar <- par(mfrow = c(1, 2))
+> plot(E ~ fitted(mod_weight))
+> qqnorm(E)
+> qqline(E)
+> par(opar)
+> 
+> shapiro.test(E)
+
+	Shapiro-Wilk normality test
+
+data:  E
+W = 0.96132, p-value = 0.4414
+
+> 
+> opar = par(mfrow = c(1, 2))
+> boxplot(E ~ df_herb$root_damage)
+> boxplot(E ~ df_herb$foliar_damage)
+> par(opar)
+> 
+> summary(mod_weight)
+Linear mixed-effects model fit by REML
+  Data: df_herb 
+       AIC      BIC    logLik
+  137.2117 143.4788 -62.60585
+
+Random effects:
+ Formula: ~1 | bloque
+        (Intercept) Residual
+StdDev:    2.715304 2.051693
+
+Fixed effects:  rgr ~ lolines_content + root_damage + foliar_damage 
+                     Value Std.Error DF    t-value p-value
+(Intercept)     -0.5865236 1.3153677 14 -0.4459008  0.6625
+lolines_content -0.0084383 0.0029976 14 -2.8149850  0.0138
+root_damage1     0.1740259 0.4194259 14  0.4149145  0.6845
+foliar_damage1  -0.0751162 0.4373766 14 -0.1717426  0.8661
+ Correlation: 
+                (Intr) llns_c rt_dm1
+lolines_content -0.596              
+root_damage1    -0.044 -0.004       
+foliar_damage1  -0.142  0.099  0.083
+
+Standardized Within-Group Residuals:
+       Min         Q1        Med         Q3        Max 
+-1.6426184 -0.3885087  0.1091245  0.5489380  1.1934088 
+
+Number of Observations: 25
+Number of Groups: 8 
+> 
+> car::Anova(mod_weight, type = "III")
+Analysis of Deviance Table (Type III tests)
+
+Response: rgr
+                 Chisq Df Pr(>Chisq)   
+(Intercept)     0.1988  1   0.655669   
+lolines_content 7.9241  1   0.004878 **
+root_damage     0.1722  1   0.678204   
+foliar_damage   0.0295  1   0.863640   
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+> 
+> 
+> proc.time()
+   user  system elapsed 
+  1.472   0.075   1.542 
