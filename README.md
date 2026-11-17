@@ -1,8 +1,6 @@
-# epichloe_root_herb
+## Foliar clipping and root herbivory induce root alkaloids from the foliar endophyte *Epichloë occultans* in *Lolium multiflorum*, but not resistance to root herbivores
 
-This repository contains all data and code needed to reproduce the manuscript:
-
-"Foliar clipping and root herbivory induce root alkaloids from the foliar endophyte *Epichloë occultans* in *Lolium multiflorum*, but not resistance to root herbivores"
+This repository contains all data and code needed to reproduce the manuscript.
 
 It is a document-generation project that assembles the main paper and supporting appendix from analysis scripts, data, figures, and manuscript sections.
 
@@ -30,7 +28,6 @@ It is a document-generation project that assembles the main paper and supporting
 Run from the repository root:
 
 ```sh
-make
+make clean all
 ```
 
-This builds the manuscript and supplementary document(s). ImageMagick is only required when generating supplementary Figure S1.

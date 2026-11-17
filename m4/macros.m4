@@ -7,7 +7,7 @@ m4_define({{_TITLE}}, {{Foliar clipping and root herbivory induce root alkaloids
 m4_define({{_CROSS}},{{×}})
 m4_define({{_CHISQ}},{{χ^2^}})
 
-m4_define({{_GITHUB}},{{**LINK GITHUB**}})
+m4_define({{_GITHUB}},{{https://github.com/fdecunta/epichloe_root_herb}})
 m4_define({{_ZENODO}},{{**LINK ZENODO**}})
 
 m4_define({{_TABLE_LOLINES}}, {{Table S1}})
