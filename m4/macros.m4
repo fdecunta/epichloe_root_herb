@@ -8,7 +8,7 @@ m4_define({{_CROSS}},{{×}})
 m4_define({{_CHISQ}},{{χ^2^}})
 
 m4_define({{_GITHUB}},{{https://github.com/fdecunta/epichloe_root_herb}})
-m4_define({{_ZENODO}},{{**LINK ZENODO**}})
+m4_define({{_ZENODO}},{{https://doi.org/10.5281/zenodo.24319661}})
 
 m4_define({{_TABLE_LOLINES}}, {{Table S1}})
 m4_define({{_TABLE_RGR_X_LOLINES}}, {{Table S2}})
